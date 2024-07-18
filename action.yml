@@ -12,6 +12,14 @@ inputs:
     description: "Glob of files to exclude from check, supports wildcards"
     required: false
     default: ''
+  use_gitignore:
+    description: "Boolean flag to enable .gitignore content reading"
+    required: false
+    default: 'false'
+  regex:
+    description: "Custom regular expression for grep"
+    required: false
+    default: '^<<<<<<<|^>>>>>>>'
 runs:
   using: 'composite'
   steps:
@@ -20,3 +28,5 @@ runs:
       env:
         INPUT_EXCLUDE_DIR: ${{ inputs.exclude_dir }}
         INPUT_EXCLUDES: ${{ inputs.excludes }}
+        INPUT_USE_GITIGNORE: ${{ inputs.use_gitignore }}
+        INPUT_REGEX: ${{ inputs.regex }}

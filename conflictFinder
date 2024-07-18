@@ -11,15 +11,41 @@ grepExit () {
 	exit 1;
 }
 
-EXCLUDE=(${INPUT_EXCLUDES/,/ })
-EXCLUDE_DIR=(${INPUT_EXCLUDE_DIR/,/ })
+# Read inputs
+EXCLUDE=(${INPUT_EXCLUDES//,/ })
+EXCLUDE_DIR=(${INPUT_EXCLUDE_DIR//,/ })
+USE_GITIGNORE=$INPUT_USE_GITIGNORE
+REGEX=$INPUT_REGEX
 
-CONFLICTS="$(grep -lr -r --exclude-dir=.git "${EXCLUDE_DIR[@]/#/--exclude-dir=}" "${EXCLUDE[@]/#/--exclude=}" -E -- '^<<<<<<<|^>>>>>>>' .)" || grepExit $?
+# Read .gitignore if the flag is set
+if [ "$USE_GITIGNORE" = "true" ]; then
+	if [ -f .gitignore ]; then
+		mapfile -t GITIGNORE < .gitignore
+		EXCLUDE_DIR_GITIGNORE=()
+		EXCLUDE_GITIGNORE=()
+		for line in "${GITIGNORE[@]}"; do
+			# Ignore comments and empty lines
+			[[ "$line" =~ ^#.*$ ]] && continue
+			[[ -z "$line" ]] && continue
+			# Convert directories to --exclude-dir and files to --exclude
+			if [[ "$line" == */ ]]; then
+				EXCLUDE_DIR_GITIGNORE+=("${line%/}")
+			else
+				EXCLUDE_GITIGNORE+=("$line")
+			fi
+		done
+		EXCLUDE=("${EXCLUDE[@]}" "${EXCLUDE_GITIGNORE[@]}")
+		EXCLUDE_DIR=("${EXCLUDE_DIR[@]}" "${EXCLUDE_DIR_GITIGNORE[@]}")
+	fi
+fi
+
+# Perform the grep search
+CONFLICTS="$(grep -lr -r --exclude-dir=.git "${EXCLUDE_DIR[@]/#/--exclude-dir=}" "${EXCLUDE[@]/#/--exclude=}" -E -- "$REGEX" .)" || grepExit $?
 
 printf "\033[1;31mFound merge conflicts.\033[0m\n"
-for file in "$CONFLICTS"
+for file in $CONFLICTS
 do
-	echo "::error file="$file"::Merge conflict found in $file"
+	echo "::error file=$file::Merge conflict found in $file"
 done
 
 exit 1;
